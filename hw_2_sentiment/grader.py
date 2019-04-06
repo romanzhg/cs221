@@ -68,6 +68,7 @@ def test3b2():
     trainExamples = readExamples('polarity.train')
     devExamples = readExamples('polarity.dev')
     featureExtractor = submission.extractWordFeatures
+    # featureExtractor = submission.extractCharacterFeatures(5)
     weights = submission.learnPredictor(trainExamples, devExamples, featureExtractor, numIters=20, eta=0.01)
     outputWeights(weights, 'weights')
     outputErrorAnalysis(devExamples, featureExtractor, weights, 'error-analysis')  # Use this to debug
@@ -77,6 +78,7 @@ def test3b2():
     grader.requireIsLessThan(0.04, trainError)
     grader.requireIsLessThan(0.30, devError)
 grader.addBasicPart('3b-2-basic', test3b2, maxPoints=2, maxSeconds=8, description="test classifier on real polarity dev dataset")
+# grader.addBasicPart('3b-2-basic', test3b2, maxPoints=2, maxSeconds=60, description="test classifier on real polarity dev dataset")
 
 ### 3c
 
