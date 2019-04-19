@@ -3,9 +3,12 @@ from collections import defaultdict
 from util import ValueIteration
 
 ############################################################
+# Version 2
+# TODO:
+# Try to enable isSafeToTake and run "python grader.py 4b-helper"
+# Try to Understand the difference.
+#
 # Version 1
-# TODO: current version pass the tests. Modify blackjackFeatureExtractor in next version
-# so the peek result(next card) is included in the feature.
 #
 # Written part
 # 4b. Value iteration has access to the entire model of MDP, so it will always give the
@@ -198,20 +201,30 @@ def peekingMDP():
 # explorationProb: the epsilon value indicating how frequently the policy
 # returns a random action
 class QLearningAlgorithm(util.RLAlgorithm):
-    def __init__(self, actions, discount, featureExtractor, explorationProb=0.2):
+    def __init__(self, actions, discount, featureExtractor, cardValues, threshold, explorationProb=0.2):
         self.actions = actions
         self.discount = discount
         self.featureExtractor = featureExtractor
         self.explorationProb = explorationProb
         self.weights = defaultdict(float)
         self.numIters = 0
+        self.cardValues = cardValues
+        self.threshold = threshold
 
     # Return the Q function associated with the weights and features
     def getQ(self, state, action):
         score = 0
-        for f, v in self.featureExtractor(state, action):
+        for f, v in self.featureExtractor(state, action, self.cardValues, self.threshold):
             score += self.weights[f] * v
         return score
+
+    def isSafeToTake(self, state):
+        total, nextCard, counts = state
+        if nextCard is not None:
+            newTotal = total + self.cardValues[nextCard]
+            if newTotal <= self.threshold:
+                return True
+        return False
 
     # This algorithm will produce an action given a state.
     # Here we use the epsilon-greedy algorithm: with probability
@@ -221,6 +234,8 @@ class QLearningAlgorithm(util.RLAlgorithm):
         if random.random() < self.explorationProb:
             return random.choice(self.actions(state))
         else:
+            # if self.isSafeToTake(state):
+            #     return 'Take'
             return max((self.getQ(state, action), action) for action in self.actions(state))[1]
 
     def getVopt(self, state):
@@ -245,14 +260,14 @@ class QLearningAlgorithm(util.RLAlgorithm):
         qPredict = self.getQ(state, action)
         # vOpt = self.getVopt(newState)
         target = float(reward) + float(self.discount) * vOpt
-        for f, v in self.featureExtractor(state, action):
+        for f, v in self.featureExtractor(state, action, self.cardValues, self.threshold):
             self.weights[f] = self.weights[f] - self.getStepSize() * (qPredict - target) * v
 
         # END_YOUR_CODE
 
 # Return a single-element list containing a binary (indicator) feature
 # for the existence of the (state, action) pair.  Provides no generalization.
-def identityFeatureExtractor(state, action):
+def identityFeatureExtractor(state, action, cardValues, threshold):
     featureKey = (state, action)
     featureValue = 1
     return [(featureKey, featureValue)]
@@ -277,9 +292,10 @@ def simulate_QL_over_MDP(mdp, featureExtractor):
     vi.solve(mdp)
 
     trails = 30000
-    rl = QLearningAlgorithm(mdp.actions, mdp.discount(), featureExtractor, 1)
-    util.simulate(mdp, rl, numTrials=trails, maxIterations=1000, verbose=False)
+    rl = QLearningAlgorithm(mdp.actions, mdp.discount(),
+        featureExtractor, mdp.cardValues, mdp.threshold, 1)
 
+    util.simulate(mdp, rl, numTrials=trails, maxIterations=1000, verbose=False)
     rl.explorationProb = 0
 
     differentActionCount = 0
@@ -289,7 +305,7 @@ def simulate_QL_over_MDP(mdp, featureExtractor):
         totalActionCount += 1
         if rlAction != v:
             differentActionCount += 1
-            # print("diff: " + str(k) + " action vi: " + v + " action rl: " + rlAction)
+            print("diff: " + str(k) + " action vi: " + v + " action rl: " + rlAction)
 
     totalReward = util.simulate(mdp, rl, numTrials=trails, maxIterations=1000, verbose=False)
 
@@ -315,12 +331,16 @@ def simulate_QL_over_MDP(mdp, featureExtractor):
 #       Note: only add this feature if the deck is not None.
 # -- Indicators for the action and the number of cards remaining with each face value (len(counts) features).
 #       Note: only add these features if the deck is not None.
-def blackjackFeatureExtractor(state, action):
+def blackjackFeatureExtractor(state, action, cardValues, threshold):
     total, nextCard, counts = state
 
     # BEGIN_YOUR_CODE (our solution is 8 lines of code, but don't worry if you deviate from this)
     rtn = []
-    # rtn.append(((action, total, nextCard), 1))
+
+    # if nextCard is not None and action == 'Take':
+    #     newTotal = total + cardValues[nextCard]
+    #     if newTotal <= threshold:
+    #         rtn.append(('SafeToTake', 1))
 
     rtn.append(((action, total), 1))
 
@@ -353,34 +373,7 @@ def compare_changed_MDP(original_mdp, modified_mdp, featureExtractor):
     # and compare the rewards generated by each.
     # BEGIN_YOUR_CODE
 
-    # TODO: remove these two lines, not necessary.
-    original_mdp.computeStates()
-    modified_mdp.computeStates()
-
-    trails = 30000
-
-    vi0 = ValueIteration()
-    vi0.solve(original_mdp)
-
-    rl0 = util.FixedRLAlgorithm(vi0.pi)
-    totalReward0 = util.simulate(modified_mdp, rl0, numTrials=trails)
-
-    rl1 = QLearningAlgorithm(modified_mdp.actions, modified_mdp.discount(), featureExtractor, 1)
-    util.simulate(modified_mdp, rl1, numTrials=trails)
-    rl1.explorationProb = 0
-    totalReward1 = util.simulate(modified_mdp, rl1, numTrials=trails)
-
-    rl2 = QLearningAlgorithm(original_mdp.actions, original_mdp.discount(), featureExtractor, 1)
-    util.simulate(original_mdp, rl2, numTrials=trails)
-    rl2.explorationProb = 0
-    totalReward2 = util.simulate(modified_mdp, rl2, numTrials=trails)
-
-    print("rl0(parameters from value iteration on the original problem) \
-        value of start state(through experiment): " + str(sum(totalReward0) / float(trails)))
-    print("rl1(parameters from q-learning trained on the modified problem) \
-        value of start state(through experiment): " + str(sum(totalReward1) / float(trails)))
-    print("rl2(parameters from q-learning trained on the original problem) \
-        value of start state(through experiment): " + str(sum(totalReward2) / float(trails)))
+    pass
 
     # END_YOUR_CODE
 
