@@ -1,6 +1,6 @@
 from util import manhattanDistance
 from game import Directions
-import random, util
+import random, util, sys
 
 from game import Agent
 
@@ -115,6 +115,7 @@ class MultiAgentSearchAgent(Agent):
   """
 
   def __init__(self, evalFn = 'scoreEvaluationFunction', depth = '2'):
+    # This implies agents of this class can only be a max agent.
     self.index = 0 # Pacman is always agent index 0
     self.evaluationFunction = util.lookup(evalFn, globals())
     self.depth = int(depth)
@@ -126,6 +127,22 @@ class MinimaxAgent(MultiAgentSearchAgent):
   """
     Your minimax agent (problem 1)
   """
+  def getValue(self, gameState, curDepth, agentCount):
+    if gameState.isWin() or gameState.isLose():
+        return gameState.getScore()
+    if curDepth == 0:
+        return self.evaluationFunction(gameState)
+
+    agentIndex = curDepth % agentCount
+    legalMoves = gameState.getLegalActions(agentIndex)
+    if agentIndex == 0:
+        # Max agent.
+        values = [self.getValue(gameState.generateSuccessor(agentIndex, action), curDepth - 1, agentCount) for action in legalMoves]
+        return max(values)
+    else:
+        # Min agent.
+        values = [self.getValue(gameState.generateSuccessor(agentIndex, action), curDepth - 1, agentCount) for action in legalMoves]
+        return min(values)
 
   def getAction(self, gameState):
     """
@@ -163,7 +180,15 @@ class MinimaxAgent(MultiAgentSearchAgent):
     """
 
     # BEGIN_YOUR_CODE (our solution is 26 lines of code, but don't worry if you deviate from this)
-    raise Exception("Not implemented yet")
+    legalMoves = gameState.getLegalActions(0)
+    modifiedDepth = gameState.getNumAgents() * self.depth
+    values = [(self.getValue(gameState.generateSuccessor(0, action), modifiedDepth - 1, gameState.getNumAgents()), action)
+            for action in legalMoves]
+    bestScore = max(values)
+    bestIndices = [index for index in range(len(values)) if values[index] == bestScore]
+    chosenIndex = random.choice(bestIndices)
+    return legalMoves[chosenIndex]
+
     # END_YOUR_CODE
 
 ######################################################################################
@@ -173,6 +198,47 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
   """
     Your minimax agent with alpha-beta pruning (problem 2)
   """
+  def getValueAndAction(self, gameState, curDepth, agentCount, lb, ub):
+    # Returns a dummy action if current state is an end state.
+    if gameState.isWin() or gameState.isLose():
+        return (gameState.getScore(), Directions.STOP)
+    if curDepth == 0:
+        return (self.evaluationFunction(gameState), Directions.STOP)
+
+    agentIndex = curDepth % agentCount
+    legalMoves = gameState.getLegalActions(agentIndex)
+    cmpFunc = max if agentIndex == 0 else min
+
+    valueAndActions = []
+    if agentIndex == 0:
+        # Max agent.
+        for action in legalMoves:
+            valueAndAction = (self.getValueAndAction(gameState.generateSuccessor(agentIndex, action),
+                                                     curDepth - 1,
+                                                     agentCount,
+                                                     lb, ub)[0],
+                              action)
+            lb = cmpFunc(lb, valueAndAction[0])
+            valueAndActions.append(valueAndAction)
+            if lb >= ub:
+                return (lb, action)
+    else:
+        # Min agent.
+        for action in legalMoves:
+            valueAndAction = (self.getValueAndAction(gameState.generateSuccessor(agentIndex, action),
+                                                     curDepth - 1,
+                                                     agentCount,
+                                                     lb, ub)[0],
+                              action)
+            ub = cmpFunc(ub, valueAndAction[0])
+            valueAndActions.append(valueAndAction)
+            if lb >= ub:
+                return (ub, action)
+
+    bestValueAndAction = cmpFunc(valueAndActions)
+    bestIndices = [index for index in range(len(valueAndActions)) if valueAndActions[index][0] == bestValueAndAction[0]]
+    chosenIndex = random.choice(bestIndices)
+    return valueAndActions[chosenIndex]
 
   def getAction(self, gameState):
     """
@@ -180,7 +246,9 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
     """
 
     # BEGIN_YOUR_CODE (our solution is 49 lines of code, but don't worry if you deviate from this)
-    raise Exception("Not implemented yet")
+    modifiedDepth = gameState.getNumAgents() * self.depth
+    rtn = self.getValueAndAction(gameState, modifiedDepth, gameState.getNumAgents(), - sys.maxint - 1, sys.maxint)
+    return rtn[1]
     # END_YOUR_CODE
 
 ######################################################################################
@@ -190,6 +258,37 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
   """
     Your expectimax agent (problem 3)
   """
+  def getValueAndActionEM(self, gameState, curDepth, agentCount):
+    # Returns a dummy action if current state is an end state.
+    if gameState.isWin() or gameState.isLose():
+        return (gameState.getScore(), Directions.STOP)
+    if curDepth == 0:
+        return (self.evaluationFunction(gameState), Directions.STOP)
+
+    agentIndex = curDepth % agentCount
+    legalMoves = gameState.getLegalActions(agentIndex)
+    
+    if agentIndex == 0:
+        # Max agent.
+        valueAndActions = []
+        for action in legalMoves:
+            valueAndAction = (self.getValueAndActionEM(gameState.generateSuccessor(agentIndex, action),
+                                                       curDepth - 1,
+                                                       agentCount)[0],
+                              action)
+            valueAndActions.append(valueAndAction)
+
+        bestValueAndAction = max(valueAndActions)
+        bestIndices = [index for index in range(len(valueAndActions)) if valueAndActions[index][0] == bestValueAndAction[0]]
+        chosenIndex = random.choice(bestIndices)
+        return valueAndActions[chosenIndex]
+
+    else:
+        # Min agent.
+        values = [self.getValueAndActionEM(gameState.generateSuccessor(agentIndex, action),
+                                           curDepth - 1,
+                                           agentCount)[0] for action in legalMoves]
+        return (sum(values) / float(len(values)), Directions.STOP)
 
   def getAction(self, gameState):
     """
@@ -200,22 +299,59 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
     """
 
     # BEGIN_YOUR_CODE (our solution is 25 lines of code, but don't worry if you deviate from this)
-    raise Exception("Not implemented yet")
+    modifiedDepth = gameState.getNumAgents() * self.depth
+    rtn = self.getValueAndActionEM(gameState, modifiedDepth, gameState.getNumAgents())
+    return rtn[1]
     # END_YOUR_CODE
 
 ######################################################################################
 # Problem 4a (extra credit): creating a better evaluation function
 
-def betterEvaluationFunction(currentGameState):
-  """
-    Your extreme, unstoppable evaluation function (problem 4).
+def getMinManhattanDist(capsules, pacManPos):
+    if len(capsules) == 0:
+        return 1000000
+    dists = [manhattanDistance(pos, pacManPos) for pos in capsules]
+    return min(dists)
 
-    DESCRIPTION: <write something here so we know what you did>
-  """
+def betterEvaluationFunction(gs):
+    """
+      Your extreme, unstoppable evaluation function (problem 4).
 
-  # BEGIN_YOUR_CODE (our solution is 26 lines of code, but don't worry if you deviate from this)
-  raise Exception("Not implemented yet")
-  # END_YOUR_CODE
+      DESCRIPTION: <write something here so we know what you did>
+    """
+
+    # BEGIN_YOUR_CODE (our solution is 26 lines of code, but don't worry if you deviate from this)
+    if gs.isLose():
+        return -100000
+
+    if gs.isWin():
+        return 100000
+
+    ghostStates = gs.getGhostStates()
+
+    rtn = float(0)
+
+    rtn += gs.getScore()
+
+    for ghost in ghostStates:
+        if ghost.scaredTimer > 1:
+            rtn = rtn \
+                  + 300 / float(manhattanDistance(ghost.getPosition(), gs.getPacmanPosition()) + 1)
+        else:
+            rtn = rtn \
+                  - 300 / float(manhattanDistance(ghost.getPosition(), gs.getPacmanPosition()) + 1)
+
+    # currentFood = gs.getFood()
+    # minManhattanDist = 10000
+
+    # for x in range(0, gs.data.layout.width):
+    #     for y in range(0, gs.data.layout.height):
+    #         if currentFood[x][y] == True:
+    #             minManhattanDist = min(minManhattanDist, manhattanDistance(gs.getPacmanPosition(), (x, y)))
+        
+    # rtn += 300 / float(minManhattanDist + 1)
+    return rtn
+    # END_YOUR_CODE
 
 # Abbreviation
 better = betterEvaluationFunction
