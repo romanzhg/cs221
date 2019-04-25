@@ -22,6 +22,12 @@ from util import ValueIteration
 # With the feature extractor implemented in 4c, Q-Learning gives a policy with value 33.70,
 # which is close to the optimal.
 #
+# Side notes
+# The identityFeatureExtractor favors quit because if a state is never visited, the default
+# action is quit, due to the way python handles max. max(0, 0, 0) will return the last 0.
+# Peek states are less likely to be visited since it has a negative value(in the early stage
+# of iterations, since the -peekCost applies immediately).
+#
 # 4d. Using policy trained from the original problem, the performance is only half as good.
 # rl0(policy from value iteration on the original problem) 
 # value of start state(through experiment): 6.8244
