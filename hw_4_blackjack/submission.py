@@ -347,7 +347,8 @@ def blackjackFeatureExtractor(state, action, cardValues, threshold):
     #     newTotal = total + cardValues[nextCard]
     #     if newTotal <= threshold:
     #         rtn.append(('SafeToTake', 1))
-
+    
+    # This feature has a heavy weight, so when the total is high, 'Quit' is favored.
     rtn.append(((action, total), 1))
 
     if counts is not None:
