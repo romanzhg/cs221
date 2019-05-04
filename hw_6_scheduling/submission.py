@@ -1,5 +1,6 @@
 import collections, util, copy
 
+import operator
 ############################################################
 # Problem 0
 
@@ -12,7 +13,11 @@ def create_chain_csp(n):
     csp = util.CSP()
     # Problem 0c
     # BEGIN_YOUR_CODE (our solution is 5 lines of code, but don't worry if you deviate from this)
-    raise Exception("Not implemented yet")
+    for variable in variables:
+        csp.add_variable(variable, domain)
+
+    for index in range(0, len(variables) - 1):
+        csp.add_binary_factor(variables[index], variables[index + 1], operator.xor)
     # END_YOUR_CODE
     return csp
 
@@ -33,7 +38,16 @@ def create_nqueens_csp(n = 8):
     csp = util.CSP()
     # Problem 1a
     # BEGIN_YOUR_CODE (our solution is 7 lines of code, but don't worry if you deviate from this)
-    raise Exception("Not implemented yet")
+    domain = range(0, n)
+    variables = ['x%d'%i for i in range(0, n)]
+
+    for variable in variables:
+        csp.add_variable(variable, domain)
+
+    for i1 in range(0, n):
+        for i2 in range(i1 + 1, n):
+            csp.add_binary_factor(variables[i1], variables[i2], lambda x, y : x != y)
+            csp.add_binary_factor(variables[i1], variables[i2], lambda x, y : abs(x - y) != (i2 - i1))
     # END_YOUR_CODE
     return csp
 
@@ -233,7 +247,17 @@ class BacktrackingSearch():
             #       assignment, a variable, and a proposed value to this variable
             # Hint: for ties, choose the variable with lowest index in self.csp.variables
             # BEGIN_YOUR_CODE (our solution is 7 lines of code, but don't worry if you deviate from this)
-            raise Exception("Not implemented yet")
+            def getDomainSize(var):
+                counter = 0
+                for val in self.domains[var]:
+                    if self.get_delta_weight(assignment, var, val) != 0:
+                        counter += 1
+                return counter
+
+            varWithDomainSize = [(getDomainSize(var), var) for var \
+                in self.csp.variables if var not in assignment]
+
+            return min(varWithDomainSize)[1]
             # END_YOUR_CODE
 
     def arc_consistency_check(self, var):
@@ -257,7 +281,31 @@ class BacktrackingSearch():
         #   (self.csp.binaryFactors[var1][var2] returns a nested dict of all assignments)
 
         # BEGIN_YOUR_CODE (our solution is 20 lines of code, but don't worry if you deviate from this)
-        raise Exception("Not implemented yet")
+        def filterFunc(var1, var2):
+            # Return a new domain for var2, for every value in the new domain, there needs to be 
+            # a value in the var1 domain which is consistent with it.
+            rtn = set()
+            curDomain = self.domains[var2]
+            for v2 in curDomain:
+                if self.csp.unaryFactors[var2] != None and self.csp.unaryFactors[var2][v2] == 0:
+                    continue
+
+                for v1 in self.domains[var1]:
+                    if self.csp.binaryFactors[var1][var2][v1][v2] != 0:
+                        rtn.add(v2)
+                        break
+            return list(rtn)
+
+        li = []
+        li.append(var)
+        while li:
+            cur = li.pop(0)
+            neighbors = self.csp.get_neighbor_vars(cur)
+            for neighbor in neighbors:
+                newDomain = filterFunc(cur, neighbor)
+                if len(newDomain) != len(self.domains[neighbor]):
+                    self.domains[neighbor] = newDomain
+                    li.append(neighbor)
         # END_YOUR_CODE
 
 
@@ -285,7 +333,32 @@ def get_sum_variable(csp, name, variables, maxSum):
         iff the assignment of |variables| sums to |n|.
     """
     # BEGIN_YOUR_CODE (our solution is 18 lines of code, but don't worry if you deviate from this)
-    raise Exception("Not implemented yet")
+    result = ('sum', name, 'aggregated')
+    csp.add_variable(result, range(0, maxSum + 1))
+
+    if len(variables) == 0:
+        csp.add_unary_factor(result, lambda val: val == 0)
+
+    domain = [(a, b) for a in range(0, maxSum + 1) for b in range(0, maxSum + 1)]
+
+    for i, X_i in enumerate(variables):
+        A_i = ('sum', name, i)
+        csp.add_variable(A_i, domain)
+
+        def factor(x, a):
+            return a[1] == a[0] + x
+        csp.add_binary_factor(X_i, A_i, factor)
+
+        if i == 0:
+            csp.add_unary_factor(A_i, lambda v: v[0] == 0)
+        else:
+            def factor(a1, a2):
+                return a1[1] == a2[0]
+
+            csp.add_binary_factor(('sum', name, i - 1), A_i, factor)
+
+    csp.add_binary_factor(A_i, result, lambda a, res: res == a[1])
+    return result
     # END_YOUR_CODE
 
 # importing get_or_variable helper function from util
@@ -376,7 +449,11 @@ class SchedulingCSPConstructor():
         """
         # Problem 3a
         # BEGIN_YOUR_CODE (our solution is 5 lines of code, but don't worry if you deviate from this)
-        raise Exception("Not implemented yet")
+        for request in self.profile.requests:
+            for quarter in self.profile.quarters:
+                if quarter not in request.quarters:
+                    csp.add_unary_factor((request, quarter), \
+                        lambda cid: cid is None)
         # END_YOUR_CODE
 
     def add_request_weights(self, csp):
@@ -453,7 +530,23 @@ class SchedulingCSPConstructor():
         #         be enforced by the constraints added by add_quarter_constraints
 
         # BEGIN_YOUR_CODE (our solution is 16 lines of code, but don't worry if you deviate from this)
-        raise Exception("Not implemented yet")
+        for quarter in self.profile.quarters:
+
+            courseVars = []
+
+            for request in self.profile.requests:
+                for course in request.cids:
+                    # According to the problem spec, "Each course can only be requested at most once".
+                    # So there won't be duplications in (course, quarter) pair.
+                    csp.add_variable((course, quarter), [0] + range(
+                        self.bulletin.courses[course].minUnits,
+                        self.bulletin.courses[course].maxUnits + 1))
+                    csp.add_binary_factor((request, quarter), (course, quarter), \
+                        lambda cid, units: (units != 0) if cid == course else (units == 0))
+                    courseVars.append((course, quarter))
+
+            creditSum = get_sum_variable(csp, quarter, courseVars, self.profile.maxUnits)
+            csp.add_unary_factor(creditSum, lambda v: v >= self.profile.minUnits)
         # END_YOUR_CODE
 
     def add_all_additional_constraints(self, csp):
