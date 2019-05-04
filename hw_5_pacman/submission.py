@@ -3,7 +3,10 @@ from game import Directions
 import random, util, sys
 
 from game import Agent
-
+"""
+TODO: solve the extra credit problem.
+How to combine features?
+"""
 class ReflexAgent(Agent):
   """
     A reflex agent chooses an action at each choice point by examining
@@ -333,6 +336,7 @@ def betterEvaluationFunction(gs):
 
     rtn += gs.getScore()
 
+
     for ghost in ghostStates:
         if ghost.scaredTimer > 1:
             rtn = rtn \
@@ -340,6 +344,12 @@ def betterEvaluationFunction(gs):
         else:
             rtn = rtn \
                   - 300 / float(manhattanDistance(ghost.getPosition(), gs.getPacmanPosition()) + 1)
+
+    # TODO: maybe one feature to add, distance to the nearest food.
+    # TODO: one feature to add, foods around (dist <= 3) the pacman position.
+    # TODO: cluster the foods, distance to the cluster center.
+    # TODO: maybe consider not using score, only combine features.
+    # TODO: train a neural network for the eval func.
 
     # currentFood = gs.getFood()
     # minManhattanDist = 10000
