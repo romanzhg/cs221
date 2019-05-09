@@ -7,6 +7,9 @@ Chris Piech (piech@cs.stanford.edu). It was inspired by the Pacman projects.
 from engine.const import Const
 import util, math, random, collections
 
+def getDist(x1, y1, x2, y2):
+    return math.sqrt((x1 - x2) **2  + (y1 - y2) ** 2)
+
 # Class: ExactInference
 # ---------------------
 # Maintain and update a belief distribution over the probability of a car
@@ -46,7 +49,13 @@ class ExactInference(object):
 
     def observe(self, agentX, agentY, observedDist):
         # BEGIN_YOUR_CODE (our solution is 6 lines of code, but don't worry if you deviate from this)
-        raise Exception("Not implemented yet")
+        for row in range(self.belief.getNumRows()):
+            for col in range(self.belief.getNumCols()):
+                tileDist = getDist(agentX, agentY, util.colToX(col), util.rowToY(row))
+                prob = self.belief.getProb(row, col) * util.pdf(tileDist, Const.SONAR_STD, observedDist)
+                # Maybe addProb can be used here, the program just converge slower.
+                self.belief.setProb(row, col, prob)
+        self.belief.normalize()
         # END_YOUR_CODE
 
     ##################################################################################
@@ -70,7 +79,16 @@ class ExactInference(object):
     def elapseTime(self):
         if self.skipElapse: return ### ONLY FOR THE GRADER TO USE IN Problem 2
         # BEGIN_YOUR_CODE (our solution is 7 lines of code, but don't worry if you deviate from this)
-        raise Exception("Not implemented yet")
+        newBelief = util.Belief(self.belief.getNumRows(), self.belief.getNumCols(), 0)
+        for elem in self.transProb.iteritems():
+            key = elem[0]
+            value = elem[1]
+            newBelief.addProb(key[1][0], key[1][1],
+                self.belief.getProb(key[0][0], key[0][1]) * value)
+
+        newBelief.normalize()
+
+        self.belief = newBelief
         # END_YOUR_CODE
       
     # Function: Get Belief
@@ -165,7 +183,18 @@ class ParticleFilter(object):
     ##################################################################################
     def observe(self, agentX, agentY, observedDist):
         # BEGIN_YOUR_CODE (our solution is 12 lines of code, but don't worry if you deviate from this)
-        raise Exception("Not implemented yet")
+        wDict = collections.defaultdict(float)
+        for tile in self.particles:
+            for _ in range(self.particles[tile]):
+                tileDist = getDist(agentX, agentY, util.colToX(tile[1]), util.rowToY(tile[0]))
+                # Weight sums.
+                wDict[tile] += util.pdf(tileDist, Const.SONAR_STD, observedDist)
+
+        newParticles = collections.defaultdict(int)
+        for _ in range(self.NUM_PARTICLES):
+            newParticles[util.weightedRandomChoice(wDict)] += 1
+
+        self.particles = newParticles
         # END_YOUR_CODE
         self.updateBelief()
     
@@ -193,7 +222,15 @@ class ParticleFilter(object):
     ##################################################################################
     def elapseTime(self):
         # BEGIN_YOUR_CODE (our solution is 6 lines of code, but don't worry if you deviate from this)
-        raise Exception("Not implemented yet")
+        newParticles = collections.defaultdict(int)
+        for tile in self.particles:
+            if tile not in self.transProbDict:
+                continue
+            newTileWeightedDict = self.transProbDict[tile]
+            for _ in range(self.particles[tile]):
+                newParticles[util.weightedRandomChoice(newTileWeightedDict)] += 1
+
+        self.particles = newParticles
         # END_YOUR_CODE
         
     # Function: Get Belief
