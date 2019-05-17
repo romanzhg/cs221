@@ -13,7 +13,7 @@ def formula1a():
     California = Atom('California')       # whether we're in California
     Rain = Atom('Rain')                   # whether it's raining
     # BEGIN_YOUR_CODE (our solution is 1 line of code, but don't worry if you deviate from this)
-    raise Exception("Not implemented yet")
+    return Implies(And(Summer, California), Not(Rain))
     # END_YOUR_CODE
 
 # Sentence: "It's wet if and only if it is raining or the sprinklers are on."
@@ -23,7 +23,7 @@ def formula1b():
     Wet = Atom('Wet')                # whether it it wet
     Sprinklers = Atom('Sprinklers')  # whether the sprinklers are on
     # BEGIN_YOUR_CODE (our solution is 1 line of code, but don't worry if you deviate from this)
-    raise Exception("Not implemented yet")
+    return Equiv(Wet, Or(Rain, Sprinklers))
     # END_YOUR_CODE
 
 # Sentence: "Either it's day or night (but not both)."
@@ -32,7 +32,7 @@ def formula1c():
     Day = Atom('Day')     # whether it's day
     Night = Atom('Night') # whether it's night
     # BEGIN_YOUR_CODE (our solution is 1 line of code, but don't worry if you deviate from this)
-    raise Exception("Not implemented yet")
+    return Or(And(Day, Not(Night)), And(Not(Day), Night))
     # END_YOUR_CODE
 
 ############################################################
@@ -46,7 +46,13 @@ def formula2a():
 
     # Note: You do NOT have to enforce that the mother is a "person"
     # BEGIN_YOUR_CODE (our solution is 1 line of code, but don't worry if you deviate from this)
-    raise Exception("Not implemented yet")
+    # return Exists('$y', Mother(Forall('$x', Person('$x')), '$y'))    
+    # return Exists('$y', Forall('$x', Mother(Person('$x'), '$y')))
+    
+    # This line is wrong since it means there exist someone who is the mother of everyone.
+    # return Exists('$y', Forall('$x', Implies(Person('$x'), Mother('$x', '$y'))))
+    
+    return Forall('$x', Exists('$y', Implies(Person('$x'), Mother('$x', '$y'))))
     # END_YOUR_CODE
 
 # Sentence: "At least one person has no children."
@@ -57,7 +63,7 @@ def formula2b():
 
     # Note: You do NOT have to enforce that the child is a "person"
     # BEGIN_YOUR_CODE (our solution is 1 line of code, but don't worry if you deviate from this)
-    raise Exception("Not implemented yet")
+    return Exists('$x', Forall('$y', And(Person('$x'), Not(Child('$x', '$y')))))
     # END_YOUR_CODE
 
 # Return a formula which defines Daughter in terms of Female and Child.
@@ -68,7 +74,8 @@ def formula2c():
     def Child(x, y): return Atom('Child', x, y)        # whether x has a child y
     def Daughter(x, y): return Atom('Daughter', x, y)  # whether x has a daughter y
     # BEGIN_YOUR_CODE (our solution is 4 lines of code, but don't worry if you deviate from this)
-    raise Exception("Not implemented yet")
+    return Forall('$x', Forall('$y',
+            Equiv(Daughter('$x', '$y'), And(Child('$x', '$y'), Female('$y')))))
     # END_YOUR_CODE
 
 # Return a formula which defines Grandmother in terms of Female and Parent.
@@ -79,7 +86,15 @@ def formula2d():
     def Parent(x, y): return Atom('Parent', x, y)            # whether x has a parent y
     def Grandmother(x, y): return Atom('Grandmother', x, y)  # whether x has a grandmother y
     # BEGIN_YOUR_CODE (our solution is 5 lines of code, but don't worry if you deviate from this)
-    raise Exception("Not implemented yet")
+
+    # Why this line fails?
+    # return Forall('$x', Forall('$y', Exists('$m', Equiv(
+    #     Grandmother('$x', '$y'),
+    #     AndList([Parent('$x', '$m'), Parent('$m', '$y'), Female('$y')])))))
+
+    return Forall('$x', Forall('$y', Equiv(
+        Grandmother('$x', '$y'),
+        Exists('$m', AndList([Parent('$x', '$m'), Parent('$m', '$y'), Female('$y')])))))
     # END_YOUR_CODE
 
 ############################################################
@@ -110,7 +125,22 @@ def liar():
     formulas.append(Equiv(TellTruth(john), Not(CrashedServer(john))))
     # You should add 5 formulas, one for each of facts 1-5.
     # BEGIN_YOUR_CODE (our solution is 11 lines of code, but don't worry if you deviate from this)
-    raise Exception("Not implemented yet")
+    formulas.append(Equiv(TellTruth(susan), CrashedServer(nicole)))
+
+    formulas.append(Equiv(TellTruth(mark), CrashedServer(susan)))
+
+    # formulas.append(Or(And(TellTruth(susan), Not(TellTruth(nicole))),
+    #     And(TellTruth(nicole), Not(TellTruth(susan)))))
+    formulas.append(Xor(TellTruth(susan), TellTruth(nicole)))
+
+    formulas.append(Forall('$x', Forall('$y',
+        And(Not(AndList([TellTruth('$x'), TellTruth('$y'), Not(Equals('$x', '$y'))])),
+            OrList([TellTruth(john), TellTruth(susan), TellTruth(nicole), TellTruth(mark)])))))
+
+    formulas.append(Forall('$x', Forall('$y',
+        And(Not(AndList([CrashedServer('$x'), CrashedServer('$y'), Not(Equals('$x', '$y'))])),
+            OrList([CrashedServer(john), CrashedServer(susan), CrashedServer(nicole), CrashedServer(mark)])))))
+
     # END_YOUR_CODE
     query = CrashedServer('$x')
     return (formulas, query)
@@ -142,7 +172,26 @@ def ints():
     formulas = []
     query = None
     # BEGIN_YOUR_CODE (our solution is 30 lines of code, but don't worry if you deviate from this)
-    raise Exception("Not implemented yet")
+    formulas.append(
+        And(Forall('$x', Exists('$y', And(Successor('$x', '$y'), Not(Equals('$x', '$y'))))),
+            Forall('$x', Forall('$y', Forall('$z', Implies(
+                                                    And(Successor('$x', '$y'), Successor('$x', '$z')),
+                                                    Equals('$y', '$z')))))))
+
+    formulas.append(Forall('$x', Xor(Even('$x'), Odd('$x'))))
+
+    formulas.append(Forall('$x', Forall('$y',
+        Implies(And(Successor('$x', '$y'), Even('$x')), Odd('$y')))))
+
+    formulas.append(Forall('$x', Forall('$y',
+        Implies(And(Successor('$x', '$y'), Odd('$x')), Even('$y')))))
+
+    formulas.append(Forall('$x', Forall('$y',
+        Implies(Successor('$x', '$y'), Larger('$y', '$x')))))
+
+    formulas.append(Forall('$x', Forall('$y', Forall('$z',
+        Implies(And(Larger('$x', '$y'), Larger('$y', '$z')),
+                Larger('$x', '$z'))))))
     # END_YOUR_CODE
     query = Forall('$x', Exists('$y', And(Even('$y'), Larger('$y', '$x'))))
     return (formulas, query)
